@@ -20,6 +20,7 @@ break_time = None
 last_msg_time = time()
 MERGE_TIMEOUT = 30
 merge_semaphore = asyncio.Semaphore(value=1)
+draft_semaphore = asyncio.Semaphore(value=1)
 
 
 
@@ -82,18 +83,26 @@ async def run_command_shell(cmd, e):
 
 @client.on(events.Raw(types=UpdateDraftMessage))
 async def translator(event):
-    for draft in await client.get_drafts():
-        if draft.is_empty:
-            await draft.delete()
-            continue
-        text = draft.text
-        for lang_code in supported_langs.values():
-            if text.endswith('/{0}'.format(lang_code)):
-                translated = mtranslate.translate(text[:-(len(lang_code) + 1)], lang_code, 'auto')
-                for i in range(3):
-                    await draft.set_message(text=translated)
-                    await asyncio.sleep(3)
-                return
+    global draft_semaphore
+    await draft_semaphore.acquire()
+    try:
+        for draft in await client.get_drafts():
+            if draft.is_empty:
+                await draft.delete()
+                continue
+            text = draft.text
+            for lang_code in supported_langs.values():
+                if text.endswith('/{0}'.format(lang_code)):
+                    translated = 'test'#mtranslate.translate(text[:-(len(lang_code) + 1)], lang_code, 'auto')
+                    for i in range(3):
+                        await draft.set_message(text=translated)
+                        await asyncio.sleep(5)
+                    return
+    except Exception as e:
+        print(e)
+    finally:
+        draft_semaphore.release()
+
 
 
 @client.on(events.NewMessage(incoming=True))
